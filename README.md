@@ -21,18 +21,12 @@ Send the bot a Tokopedia product URL, it keeps an eye on the price in the backgr
 
 ## How it works 
 
-```
-Telegram user (/track <url>)
-     │  
-     ▼
-  bot.py  ──────────►  storage.py  ──────────►  scraper.py
-(handles Telegram      (SQLite: products,       (Playwright: opens the
- commands & replies)    tracking, price_history)  product page, grabs name
-                                                    & price)
-```
+
+<img width="843" height="265" alt="image" src="https://github.com/user-attachments/assets/1a9dbaff-178a-46b2-984b-eef59ac345bc" />
+
 
 - **`bot.py`** — the entry point. Receives Telegram commands (`/track`, `/myitems`, `/remove`) and replies to users.
-- **`scraper.py`** — uses Playwright to open a product page, wait for the relevant elements, and pull out the product name and price.
+- **`scraper.py`** — uses Playwright to open a product page, wait for the relevant elements, and get the product name and price.
 - **`storage.py`** — a `Database` class wrapping SQLite. Handles saving products, linking them to the user who's tracking them, and recording price history.
 - **`scheduler.py`** — runs in the background (via APScheduler) and periodically re-scrapes every tracked product, updating prices and firing off notifications when something changes.
 
