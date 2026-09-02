@@ -21,6 +21,10 @@ USER_AGENT = (
 LAUNCH_ARGS = [
     "--no-sandbox",
     "--disable-setuid-sandbox",
+
+    "--disable-http2",
+    "--disable-quic",
+
     "--disable-blink-features=AutomationControlled",
     "--disable-dev-shm-usage",
     "--disable-infobars",
