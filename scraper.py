@@ -9,19 +9,19 @@ logger = logging.getLogger(__name__)
 MAX_RETRIES = 2
 RETRY_DELAY_SECONDS = 3
 GOTO_TIMEOUT_MS = 60_000
-WAIT_TIMEOUT_MS = 60_000
+SELECTOR_TIMEOUT_MS = 10_000
 SHORTLINK_HOST = "tk.tokopedia.com"
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/127.0.0.0 Safari/537.36"
+    "Chrome/128.0.0.0 Safari/537.36"
 )
 
 LAUNCH_ARGS = [
-    "--disable-blink-features=AutomationControlled",
     "--no-sandbox",
     "--disable-setuid-sandbox",
+    "--disable-blink-features=AutomationControlled",
     "--disable-dev-shm-usage",
     "--disable-infobars",
     "--disable-extensions",
@@ -55,34 +55,24 @@ def _is_shortlink(url: str) -> bool:
     return SHORTLINK_HOST in (url or "").lower()
 
 
-def _follow_shortlink_redirects(page) -> None:
-    """HTTP redirect diikuti Playwright; shortlink Tokopedia kadang lanjut via JS."""
-    if not _is_shortlink(page.url):
-        return
+def _resolve_final_url(page, original_url: str) -> str:
+    """Ikuti redirect shortlink sampai selesai, lalu ambil page.url akhir."""
+    if _is_shortlink(page.url) or _is_shortlink(original_url):
+        logger.info("Shortlink terdeteksi, menunggu redirect penuh: %s", page.url)
+        try:
+            page.wait_for_url(
+                lambda current: not _is_shortlink(current),
+                timeout=GOTO_TIMEOUT_MS,
+                wait_until="domcontentloaded",
+            )
+        except PlaywrightTimeoutError as e:
+            raise ScrapeError(
+                "Shortlink Tokopedia tidak mengarah ke halaman produk. Periksa tautan."
+            ) from e
 
-    logger.info("Mengikuti redirect shortlink: %s", page.url)
-    try:
-        page.wait_for_url(
-            lambda current: not _is_shortlink(current),
-            timeout=GOTO_TIMEOUT_MS,
-            wait_until="domcontentloaded",
-        )
-    except PlaywrightTimeoutError as e:
-        raise ScrapeError(
-            "Shortlink Tokopedia tidak mengarah ke halaman produk. Periksa tautan."
-        ) from e
-
-    logger.info("URL akhir setelah redirect: %s", page.url)
-
-
-def _wait_for_page_ready(page) -> None:
-    try:
-        page.wait_for_load_state("networkidle", timeout=GOTO_TIMEOUT_MS)
-    except PlaywrightTimeoutError:
-        logger.info(
-            "networkidle belum tercapai, lanjut dengan DOM yang sudah ter-load: %s",
-            page.url,
-        )
+    final_url = page.url
+    logger.info("URL akhir setelah redirect: %s", final_url)
+    return final_url
 
 
 def _scrape_once(url: str) -> tuple:
@@ -101,10 +91,11 @@ def _scrape_once(url: str) -> tuple:
         page.route("**/*", block_resource)
 
         try:
-            page.goto(url, timeout=GOTO_TIMEOUT_MS, wait_until="domcontentloaded")
-            _follow_shortlink_redirects(page)
-            _wait_for_page_ready(page)
-            logger.info("Halaman siap di-scrape: %s", page.url)
+            page.goto(url, wait_until="domcontentloaded", timeout=GOTO_TIMEOUT_MS)
+            final_url = _resolve_final_url(page, url)
+            logger.info("Halaman siap di-scrape: %s", final_url)
+
+            page.wait_for_selector("h1", timeout=SELECTOR_TIMEOUT_MS)
 
             xpath_name = 'xpath= //*[@id="pdp_comp-product_content"]/div/div[1]/h1 '
             xpath_price = 'xpath= //*[@id="pdp_comp-product_content"]/div/div[3]/div'
@@ -112,7 +103,7 @@ def _scrape_once(url: str) -> tuple:
             name_element = page.locator(xpath_name).first
             price_element = page.locator(xpath_price).first
 
-            name_element.wait_for(state="visible", timeout=WAIT_TIMEOUT_MS)
+            page.wait_for_selector("#pdp_comp-product_content", timeout=SELECTOR_TIMEOUT_MS)
 
             if name_element.count() == 0:
                 raise ScrapeError(
