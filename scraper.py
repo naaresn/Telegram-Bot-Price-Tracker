@@ -8,13 +8,14 @@ logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 2
 RETRY_DELAY_SECONDS = 3
-GOTO_TIMEOUT_MS = 30_000
-WAIT_TIMEOUT_MS = 15_000
+GOTO_TIMEOUT_MS = 60_000
+WAIT_TIMEOUT_MS = 60_000
+SHORTLINK_HOST = "tk.tokopedia.com"
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/122.0.0.0 Safari/537.36"
+    "Chrome/127.0.0.0 Safari/537.36"
 )
 
 LAUNCH_ARGS = [
@@ -50,6 +51,40 @@ def _validate_url(url: str) -> None:
         raise ScrapeError("Hanya tautan produk Tokopedia yang didukung.")
 
 
+def _is_shortlink(url: str) -> bool:
+    return SHORTLINK_HOST in (url or "").lower()
+
+
+def _follow_shortlink_redirects(page) -> None:
+    """HTTP redirect diikuti Playwright; shortlink Tokopedia kadang lanjut via JS."""
+    if not _is_shortlink(page.url):
+        return
+
+    logger.info("Mengikuti redirect shortlink: %s", page.url)
+    try:
+        page.wait_for_url(
+            lambda current: not _is_shortlink(current),
+            timeout=GOTO_TIMEOUT_MS,
+            wait_until="domcontentloaded",
+        )
+    except PlaywrightTimeoutError as e:
+        raise ScrapeError(
+            "Shortlink Tokopedia tidak mengarah ke halaman produk. Periksa tautan."
+        ) from e
+
+    logger.info("URL akhir setelah redirect: %s", page.url)
+
+
+def _wait_for_page_ready(page) -> None:
+    try:
+        page.wait_for_load_state("networkidle", timeout=GOTO_TIMEOUT_MS)
+    except PlaywrightTimeoutError:
+        logger.info(
+            "networkidle belum tercapai, lanjut dengan DOM yang sudah ter-load: %s",
+            page.url,
+        )
+
+
 def _scrape_once(url: str) -> tuple:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, args=LAUNCH_ARGS)
@@ -67,6 +102,9 @@ def _scrape_once(url: str) -> tuple:
 
         try:
             page.goto(url, timeout=GOTO_TIMEOUT_MS, wait_until="domcontentloaded")
+            _follow_shortlink_redirects(page)
+            _wait_for_page_ready(page)
+            logger.info("Halaman siap di-scrape: %s", page.url)
 
             xpath_name = 'xpath= //*[@id="pdp_comp-product_content"]/div/div[1]/h1 '
             xpath_price = 'xpath= //*[@id="pdp_comp-product_content"]/div/div[3]/div'
