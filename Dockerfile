@@ -1,10 +1,10 @@
-FROM mcr.microsoft.com/playwright/python:v1.45.0-noble
+FROM mcr.microsoft.com/playwright/python:v1.49.0-jammy
 
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
-    && playwright install chromium --with-deps
+RUN pip install --no-cache-dir -r requirements.txt
+RUN playwright install chromium --with-deps
 
 COPY . .
 
