@@ -3,7 +3,6 @@ import time
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
-from playwright_stealth import stealth_sync
 
 logger = logging.getLogger(__name__)
 
