@@ -3,6 +3,7 @@ import time
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
+from playwright_stealth import stealth_sync
 
 logger = logging.getLogger(__name__)
 
@@ -82,12 +83,14 @@ def _scrape_once(url: str) -> tuple:
             user_agent=USER_AGENT,
             viewport={"width": 1920, "height": 1080},
             locale="id-ID",
+            timezone_id="Asia/Jakarta",
             extra_http_headers={"Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7"},
         )
         page = context.new_page()
-        page.add_init_script(
-            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-        )
+        page.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                Object.defineProperty(navigator, 'languages', {get: () => ['id-ID', 'id', 'en-US', 'en']});
+            """)
         page.route("**/*", block_resource)
 
         try:
