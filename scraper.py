@@ -95,10 +95,10 @@ def _scrape_once(url: str) -> tuple:
             final_url = _resolve_final_url(page, url)
             logger.info("Halaman siap di-scrape: %s", final_url)
 
-            page.wait_for_selector("h1", timeout=SELECTOR_TIMEOUT_MS)
+            page.wait_for_selector('h1[data-testid="pdpDetailTitle"], h1', timeout=SELECTOR_TIMEOUT_MS)
 
-            xpath_name = 'xpath= //*[@id="pdp_comp-product_content"]/div/div[1]/h1 '
-            xpath_price = 'xpath= //*[@id="pdp_comp-product_content"]/div/div[3]/div'
+            xpath_name =  'xpath=//h1[@data-testid="pdpDetailTitle"] | //h1'
+            xpath_price = 'xpath=//*[@data-testid="pdpSubTitleUnpackedValue"] | //div[contains(@class, "price")] | //*[contains(text(), "Rp")]'
 
             name_element = page.locator(xpath_name).first
             price_element = page.locator(xpath_price).first
