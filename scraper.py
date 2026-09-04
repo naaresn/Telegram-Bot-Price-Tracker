@@ -1,13 +1,13 @@
 import logging
 import time
+import random
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
 logger = logging.getLogger(__name__)
 
-MAX_RETRIES = 2
-RETRY_DELAY_SECONDS = 3
+MAX_RETRIES = 3
 GOTO_TIMEOUT_MS = 60_000
 SELECTOR_TIMEOUT_MS = 10_000
 SHORTLINK_HOST = "tk.tokopedia.com"
@@ -100,11 +100,6 @@ def _scrape_once(url: str) -> tuple:
             page.goto(url, wait_until="domcontentloaded", timeout=GOTO_TIMEOUT_MS)
             final_url = _resolve_final_url(page, url)
             logger.info("Halaman siap di-scrape: %s", final_url)
-            
-            logger.info("PAGE TITLE: %s", page.title())
-
-            body_text = page.locator("body").inner_text()
-            logger.info("BODY PREVIEW: %s", body_text[:2000])
 
             page.wait_for_selector('h1[data-testid="pdpDetailTitle"], h1', timeout=SELECTOR_TIMEOUT_MS)
 
@@ -166,7 +161,8 @@ def scraping(url: str) -> tuple:
             )
 
         if attempt < MAX_RETRIES:
-            time.sleep(RETRY_DELAY_SECONDS)
+            delay = (2 ** attempt) + random.uniform(0, 2)
+            time.sleep(delay)
 
     raise ScrapeError(
         "Gagal memuat halaman produk setelah beberapa percobaan. Coba lagi nanti."
