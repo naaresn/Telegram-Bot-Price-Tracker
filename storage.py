@@ -1,12 +1,19 @@
 import sqlite3
 from scraper import parse_price
 from scraper import scraping
+import os
 
 class Database:
     def __init__(self):
-        self.conn = sqlite3.connect("database.db", check_same_thread = False, timeout = 10)
+        db_path = os.getenv("DB_PATH", "database.db")
+        self.conn = sqlite3.connect(db_path, check_same_thread = False, timeout = 10)
         self.c = self.conn.cursor()
         self.create_table()
+        
+        
+        # self.conn = sqlite3.connect("database.db", check_same_thread = False, timeout = 10)
+        # self.c = self.conn.cursor()
+        # self.create_table()
 
     def create_table(self):
 
