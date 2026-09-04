@@ -3,10 +3,15 @@ from scraper import parse_price
 from scraper import scraping
 import os
 
+
+DB_PATH = os.getenv("DB_PATH", "database.db")
+
 class Database:
     def __init__(self):
-        db_path = os.getenv("DB_PATH", "database.db")
-        self.conn = sqlite3.connect(db_path, check_same_thread = False, timeout = 10)
+        db_dir = os.path.dirname(DB_PATH)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
+        self.conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=10)
         self.c = self.conn.cursor()
         self.create_table()
         
